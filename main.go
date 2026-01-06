@@ -1,3 +1,7 @@
+/*
+TODO: Searching for a word and return it index
+TODO: Wails.io framework
+*/
 package main
 
 import (
