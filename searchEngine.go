@@ -1,16 +1,37 @@
-/*
-TODO: Find occurence of a word and sentences contain it
-*/
 package main
 
 import (
-	"bufio"
+	"context"
 	"fmt"
-	"github.com/go-ego/gse"
 	"log"
-	"os"
 	"strings"
+
+	"github.com/go-ego/gse"
 )
+
+type SearchEngine struct {
+	ctx       context.Context
+	wordIndex map[string][]int
+	index     int
+	wordCount int
+}
+
+func newSearchEngine() *SearchEngine {
+	var s *SearchEngine
+
+	s = &SearchEngine{
+		wordIndex: make(map[string][]int),
+		index:     0,
+		wordCount: 0,
+	}
+
+	return s
+}
+
+func (s *SearchEngine) startup(ctx context.Context) {
+	s.ctx = ctx
+	s.readFile()
+}
 
 func checkError(err error) {
 	if err != nil {
@@ -18,10 +39,10 @@ func checkError(err error) {
 	}
 }
 
-func newSegmenter() gse.Segmenter {
+func (s *SearchEngine) newSegmenter() gse.Segmenter {
 
 	var segmenter gse.Segmenter
-	err := segmenter.LoadDict()
+	err := segmenter.LoadDictEmbed()
 
 	checkError(err)
 
@@ -29,7 +50,7 @@ func newSegmenter() gse.Segmenter {
 
 }
 
-func splitLine(line string) []string {
+func (s *SearchEngine) splitLine(line string) []string {
 
 	line = strings.ReplaceAll(line, "？", "。")
 	line = strings.ReplaceAll(line, "！", "。")
@@ -49,31 +70,17 @@ func splitLine(line string) []string {
 	return clearSentences
 }
 
-type SearchEngine struct {
-	wordIndex map[string][]int
-	index     int
-	wordCount int
-}
-
-func newSearchEngine() SearchEngine {
-	return SearchEngine{
-		wordIndex: make(map[string][]int),
-		index:     0,
-		wordCount: 0,
-	}
-}
-
-func printTable(data SearchEngine) {
+func (s *SearchEngine) printTable(data SearchEngine) {
 	for word, indices := range data.wordIndex {
 		fmt.Printf("%s appears in: %d\n", word, indices)
 	}
 }
 
-func (s *SearchEngine) searchOccurence(data SearchEngine, target string) ([]int, error) {
+func (s *SearchEngine) searchOccurence(target string) ([]int, error) {
 	var result []int
 	var err error
 
-	result = data.wordIndex[target]
+	result = s.wordIndex[target]
 
 	if result == nil {
 		err = fmt.Errorf("Error 404: Word not found")
@@ -82,58 +89,44 @@ func (s *SearchEngine) searchOccurence(data SearchEngine, target string) ([]int,
 	return result, err
 }
 
-func (s *SearchEngine) readFile(data SearchEngine, segmenter gse.Segmenter) {
+func (s *SearchEngine) readFile() {
 
-	infile, err := os.Open("input.txt")
-	checkError(err)
+	infile := inputEmbed
 
-	for {
-		reader := bufio.NewReader(infile)
+	segmenter := s.newSegmenter()
 
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			return
+	sentences := s.splitLine(infile)
+
+	for _, sentence := range sentences {
+
+		words := segmenter.Cut(sentence)
+
+		for _, word := range words {
+			s.index += 1
+			s.wordCount += 1
+			s.wordIndex[word] = append(s.wordIndex[word], s.index)
 		}
-
-		sentences := splitLine(line)
-
-		for _, sentence := range sentences {
-
-			words := segmenter.Cut(sentence)
-
-			for _, word := range words {
-				data.index += 1
-				data.wordCount += 1
-				data.wordIndex[word] = append(data.wordIndex[word], data.index)
-			}
-		}
-
-		// printTable(data)
-
-		fmt.Printf("There are %d words in this paragraph\n", data.wordCount)
 	}
+
+	// printTable(data)
+
+	fmt.Printf("There are %d words in this paragraph\n", s.wordCount)
 }
 
-func (s *SearchEngine) searchInput(data SearchEngine) {
-	for {
-		reader := bufio.NewReader(os.Stdin)
-		input, err := reader.ReadString('\n')
-		checkError(err)
+func (s *SearchEngine) SearchInput(input string) string {
 
-		input = strings.TrimSpace(input)
+	fmt.Printf("=== Searching of %s start ===\n", input)
 
-		if input == "" {
-			break
-		}
+	var result string
 
-		searchResult, err := data.searchOccurence(data, input)
+	input = strings.TrimSpace(input)
 
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
+	searchResult, err := s.searchOccurence(input)
 
-		fmt.Printf("\nThe word %s appeared in %d\n", input, searchResult)
-		fmt.Printf("Find %d \n\n", len(searchResult))
+	if err != nil {
+		return fmt.Sprintf("Word: %s not found", input)
 	}
+
+	result = fmt.Sprintf("The word %s appeared in %d", input, searchResult)
+	return result
 }

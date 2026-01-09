@@ -1,2 +1,3 @@
-input.txt
-*.txt
+build/bin
+node_modules
+frontend/dist
