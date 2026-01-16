@@ -1,3 +1,6 @@
+// 2026/1/17: added sentences searching.
+// TODO:Concurrency implementation
+
 package main
 
 import (
@@ -12,6 +15,7 @@ import (
 type SearchEngine struct {
 	ctx       context.Context
 	wordIndex map[string][]int
+	book      []string
 	index     int
 	wordCount int
 }
@@ -21,6 +25,7 @@ func newSearchEngine() *SearchEngine {
 
 	s = &SearchEngine{
 		wordIndex: make(map[string][]int),
+		book:      []string{},
 		index:     0,
 		wordCount: 0,
 	}
@@ -31,6 +36,7 @@ func newSearchEngine() *SearchEngine {
 func (s *SearchEngine) startup(ctx context.Context) {
 	s.ctx = ctx
 	s.readFile()
+	s.initialBook()
 }
 
 func checkError(err error) {
@@ -57,6 +63,8 @@ func (s *SearchEngine) splitLine(line string) []string {
 	line = strings.ReplaceAll(line, "，", "。")
 	line = strings.ReplaceAll(line, "?", "。")
 	line = strings.ReplaceAll(line, "!", "。")
+	line = strings.ReplaceAll(line, "」", "。")
+	line = strings.ReplaceAll(line, "「", "。")
 
 	sentences := strings.Split(line, "。")
 	var clearSentences []string
@@ -95,22 +103,34 @@ func (s *SearchEngine) readFile() {
 
 	segmenter := s.newSegmenter()
 
-	sentences := s.splitLine(infile)
+	lines := strings.Split(infile, "\n")
 
-	for _, sentence := range sentences {
+	for index, line := range lines {
+		sentences := s.splitLine(line)
 
-		words := segmenter.Cut(sentence)
+		for _, sentence := range sentences {
+			words := segmenter.Cut(sentence)
 
-		for _, word := range words {
-			s.index += 1
-			s.wordCount += 1
-			s.wordIndex[word] = append(s.wordIndex[word], s.index)
+			for _, word := range words {
+				s.index += 1
+				s.wordCount += 1
+				s.wordIndex[word] = append(s.wordIndex[word], index)
+			}
 		}
 	}
 
 	// printTable(data)
 
-	fmt.Printf("There are %d words in this paragraph\n", s.wordCount)
+	fmt.Printf("There are %d words in this book\n", s.wordCount)
+}
+
+func (s *SearchEngine) initialBook() {
+	book := inputEmbed
+	sentences := strings.SplitSeq(book, "\n")
+
+	for sentence := range sentences {
+		s.book = append(s.book, sentence)
+	}
 }
 
 func (s *SearchEngine) SearchInput(input string) string {
@@ -121,12 +141,18 @@ func (s *SearchEngine) SearchInput(input string) string {
 
 	input = strings.TrimSpace(input)
 
-	searchResult, err := s.searchOccurence(input)
+	searchIndex, err := s.searchOccurence(input)
 
 	if err != nil {
 		return fmt.Sprintf("Word: %s not found", input)
 	}
 
-	result = fmt.Sprintf("The word %s appeared in %d", input, searchResult)
+	searchResult := ""
+
+	for _, index := range searchIndex {
+		searchResult += s.book[index]
+	}
+
+	result = fmt.Sprintf("The word %s appears in: %s", input, searchResult)
 	return result
 }
