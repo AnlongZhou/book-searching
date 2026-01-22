@@ -1,4 +1,3 @@
-// TODO:Add a result area to show the searching result 
 import { useState } from 'react';
 import './App.css';
 import { SearchInput } from "../wailsjs/go/main/SearchEngine"
