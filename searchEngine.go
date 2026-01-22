@@ -6,7 +6,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/go-ego/gse"
@@ -14,6 +13,7 @@ import (
 
 type SearchEngine struct {
 	ctx       context.Context
+	segmenter gse.Segmenter
 	wordIndex map[string][]int
 	book      []string
 	index     int
@@ -25,6 +25,7 @@ func newSearchEngine() *SearchEngine {
 
 	s = &SearchEngine{
 		wordIndex: make(map[string][]int),
+		segmenter: s.newSegmenter(),
 		book:      []string{},
 		index:     0,
 		wordCount: 0,
@@ -41,7 +42,7 @@ func (s *SearchEngine) startup(ctx context.Context) {
 
 func checkError(err error) {
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
 	}
 }
 
@@ -84,24 +85,9 @@ func (s *SearchEngine) printTable(data SearchEngine) {
 	}
 }
 
-func (s *SearchEngine) searchOccurence(target string) ([]int, error) {
-	var result []int
-	var err error
-
-	result = s.wordIndex[target]
-
-	if result == nil {
-		err = fmt.Errorf("Error 404: Word not found")
-	}
-
-	return result, err
-}
-
 func (s *SearchEngine) readFile() {
 
 	infile := inputEmbed
-
-	segmenter := s.newSegmenter()
 
 	lines := strings.Split(infile, "\n")
 
@@ -109,7 +95,7 @@ func (s *SearchEngine) readFile() {
 		sentences := s.splitLine(line)
 
 		for _, sentence := range sentences {
-			words := segmenter.Cut(sentence)
+			words := s.segmenter.Cut(sentence)
 
 			for _, word := range words {
 				s.index += 1
@@ -133,26 +119,93 @@ func (s *SearchEngine) initialBook() {
 	}
 }
 
-func (s *SearchEngine) SearchInput(input string) string {
+func (s *SearchEngine) searchOccurence(target string) ([]int, error) {
+	var result []int
+	var err error
+
+	result = s.wordIndex[target]
+
+	if result == nil {
+		err = fmt.Errorf("Error 404: Word %s not found", target)
+	}
+
+	return result, err
+}
+
+func (s *SearchEngine) findIntersection(listA []int, listB []int) []int {
+	var interSection []int
+	seen := make(map[int]bool)
+
+	for _, element := range listA {
+		seen[element] = true
+	}
+
+	for _, element := range listB {
+		if seen[element] {
+			interSection = append(interSection, element)
+			delete(seen, element)
+		}
+	}
+
+	return interSection
+}
+
+func (s *SearchEngine) SearchInput(input string) []string {
+
+	if input == "" {
+		return []string{"Input cannot be empty"}
+	}
 
 	fmt.Printf("=== Searching of %s start ===\n", input)
 
-	var result string
+	// var result string
 
-	input = strings.TrimSpace(input)
+	input = strings.ReplaceAll(input, " ", "")
+	fmt.Printf("Input: %s\n", input)
 
 	searchIndex, err := s.searchOccurence(input)
 
 	if err != nil {
-		return fmt.Sprintf("Word: %s not found", input)
+		fmt.Println(err)
+		fmt.Println("Splitting the input")
+		newWords := s.segmenter.Cut(input)
+
+		fmt.Printf("words after split: %s", newWords)
+
+		if len(newWords) <= 1 {
+			fmt.Printf("Word %s not found", input)
+			return []string{"Not Found"}
+		}
+
+		intersection, err := s.searchOccurence(newWords[0])
+		checkError(err)
+
+		for i, word := range newWords {
+			if i == 0 {
+				continue
+			}
+			temp, err := s.searchOccurence(word)
+			checkError(err)
+
+			intersection = s.findIntersection(intersection, temp)
+
+		}
+
+		fmt.Printf("final occurence: %d", intersection)
+
+		if len(intersection) == 0 {
+			return []string{"Not Found"}
+		}
+
+		searchIndex = intersection
 	}
 
-	searchResult := ""
+	var searchResult []string
 
 	for _, index := range searchIndex {
-		searchResult += s.book[index]
+		searchResult = append(searchResult, s.book[index])
 	}
 
-	result = fmt.Sprintf("The word %s appears in: %s", input, searchResult)
-	return result
+	// result = fmt.Sprintf("The word %s appears in: %s", input, searchResult)
+	return searchResult
 }
