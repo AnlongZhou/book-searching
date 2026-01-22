@@ -1,4 +1,5 @@
 // 2026/1/17: added sentences searching.
+// 2026/1/22: Enhance input and output quality.
 // TODO:Concurrency implementation
 
 package main
