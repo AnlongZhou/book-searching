@@ -6,6 +6,7 @@
 
 body {
     height: 100vh;
+    overflow-y: hidden;
 }
 
 #root {
@@ -17,16 +18,26 @@ body {
 }
 
 .container-search {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translateX(-50%);
+    margin-top: 5em;
 }
 
-.result {
+.result-area {
+    background-color: white;
+    width: 80vw;
+    height: 60vh;
+    margin: 40px auto;
+    padding: 5px;
+    overflow-y: auto;
+}
+
+.result-label {
+    font-family: cursive;
     height: 20px;
     line-height: 20px;
-    margin: 1.5rem auto;
+    color: black;
+    font-size: 22px;
+    line-height: 1em;
+    text-align: center;
 }
 
 .input-box .btn {
